@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Opening WhatsApp…</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #fdf2f8; color: #0f172a; margin: 0; display: grid; place-items: center; min-height: 100vh; }
+  .card { background: #fff; border-radius: 16px; padding: 28px 32px; box-shadow: 0 6px 24px rgba(219,39,119,.15); text-align: center; max-width: 420px; }
+  h1 { font-size: 18px; margin: 0 0 8px; color: #be185d; }
+  p { font-size: 14px; color: #64748b; margin: 6px 0 18px; }
+  a.btn { display: inline-block; margin: 4px; padding: 10px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; }
+  .app { background: #16a34a; color: #fff; }
+  .web { background: #f1f5f9; color: #0f172a; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Opening WhatsApp…</h1>
+  <p>This tab closes by itself. If WhatsApp did not open, use a button below.</p>
+  <a id="app" class="btn app" href="#">Open WhatsApp app</a>
+  <a id="web" class="btn web" href="#">Use WhatsApp Web</a>
+</div>
+<script>
+/* Yakson Today sheet → WhatsApp desktop app.
+   The phone number and message come after "#" (p=<digits>&t=<text>), so they are never sent to any server. */
+(function () {
+  var q = new URLSearchParams(location.hash.slice(1));
+  var p = (q.get('p') || '').replace(/\D/g, '');
+  var t = q.get('t') || '';
+  var app = 'whatsapp://send?phone=' + p + '&text=' + encodeURIComponent(t);
+  var web = 'https://web.whatsapp.com/send?phone=' + p + '&text=' + encodeURIComponent(t);
+  document.getElementById('app').href = app;
+  document.getElementById('web').href = web;
+  if (p) {
+    location.href = app;
+    setTimeout(function () { try { history.replaceState(null, '', location.pathname); window.close(); } catch (e) {} }, 2500);
+  }
+})();
+</script>
+</body>
+</html>
