@@ -17,10 +17,13 @@
 </head>
 <body>
 <div class="card">
-  <h1>Opening WhatsApp…</h1>
-  <p>This tab closes by itself. If WhatsApp did not open, use a button below.</p>
-  <a id="app" class="btn app" href="#">Open WhatsApp app</a>
-  <a id="web" class="btn web" href="#">Use WhatsApp Web</a>
+  <h1>✅ WhatsApp is open — don't click again</h1>
+  <p>Clicking again will paste the message twice. You can close this tab.</p>
+  <div id="fallback" style="display:none">
+    <p style="font-size:12px;margin:14px 0 6px">WhatsApp didn't open?</p>
+    <a id="app" class="btn app" href="#" style="font-size:12px;padding:6px 10px">Open WhatsApp app</a>
+    <a id="web" class="btn web" href="#" style="font-size:12px;padding:6px 10px">Use WhatsApp Web</a>
+  </div>
 </div>
 <script>
 /* Yakson Today sheet → WhatsApp desktop app.
@@ -33,9 +36,13 @@
   var web = 'https://web.whatsapp.com/send?phone=' + p + '&text=' + encodeURIComponent(t);
   document.getElementById('app').href = app;
   document.getElementById('web').href = web;
+  var fb = document.getElementById('fallback');
   if (p) {
     location.href = app;
     setTimeout(function () { try { history.replaceState(null, '', location.pathname); window.close(); } catch (e) {} }, 2500);
+    setTimeout(function () { fb.style.display = 'block'; }, 5000); /* backup buttons only after 5s, small — so staff don't click twice */
+  } else {
+    fb.style.display = 'block';
   }
 })();
 </script>
