@@ -71,6 +71,15 @@
     sw.onclick = function () { setMode(toMode); location.reload(); };
   };
 
+  /* reset this computer: …/yk-wa/#mode=app or #mode=web */
+  var forced = q.get('mode');
+  if (forced === 'app' || forced === 'web') {
+    setMode(forced); scrub();
+    h.textContent = forced === 'app' ? '✅ This computer now opens the WhatsApp app' : '✅ This computer now opens WhatsApp Web';
+    sub.textContent = 'You can close this tab and click the customer links as usual.';
+    return;
+  }
+
   if (!p) { btns.style.display = 'block'; return; }
 
   aWeb.onclick = function (e) { e.preventDefault(); setMode('web'); location.replace(web); };
