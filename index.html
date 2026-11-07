@@ -68,12 +68,48 @@
     setTimeout(function () { try { f.remove(); } catch (e) {} }, 1500);
   };
 
+  /* ---- ONE WhatsApp Web tab, via a "hub" tab (2026-11-07 evening) ----
+     Tabs opened from the Google Sheet cannot see each other (Chrome isolates them), so window.open(…, name)
+     cannot find the existing WhatsApp Web tab and opens a NEW one every time → WhatsApp Web logs out.
+     Fix: the first yakson page that opens WhatsApp Web stays open as the HUB (it owns the WhatsApp tab).
+     Every later customer link sends its chat to the hub (BroadcastChannel, same site), the hub switches
+     its WhatsApp tab to that chat, and the new page closes itself. */
+  var bc = null; try { bc = new BroadcastChannel('yk_wa'); } catch (e) {}
+  var waWin = null, isHub = false;
+
+  var becomeHub = function (w) {
+    waWin = w; isHub = true;
+    document.title = '🔗 WhatsApp link — keep open';
+    h.textContent = '🔗 Keep this tab open';
+    sub.textContent = 'Customer links now open in your WhatsApp Web tab. Do not close this tab. If you close WhatsApp Web, close this tab too.';
+    btns.style.display = 'none'; sw.style.display = 'none';
+    scrub();
+  };
+  if (bc) bc.onmessage = function (ev) {
+    var m = ev.data || {};
+    if (!isHub || m.type !== 'open') return;
+    if (!waWin || waWin.closed) { isHub = false; return; } /* WhatsApp tab was closed — no answer, the new page takes over */
+    try { waWin.location.href = m.web; } catch (e) { return; }
+    try { waWin.focus(); } catch (e) {}
+    bc.postMessage({ type: 'ack', id: m.id });
+  };
+  /* ask an existing hub to open this chat; cb(true) if it did */
+  var askHub = function (cb) {
+    if (!bc) return cb(false);
+    var id = Math.random().toString(36).slice(2), done = false;
+    var onAck = function (ev) { var m = ev.data || {}; if (m.type === 'ack' && m.id === id && !done) { done = true; bc.removeEventListener('message', onAck); cb(true); } };
+    bc.addEventListener('message', onAck);
+    bc.postMessage({ type: 'open', web: web, id: id });
+    setTimeout(function () { if (!done) { done = true; bc.removeEventListener('message', onAck); cb(false); } }, 800);
+  };
+
   /* open the chat in the ONE WhatsApp Web tab; returns true if the browser let us */
   var openWeb = function () {
     var w = null;
     try { w = window.open(web, 'yakson_wa_web'); } catch (e) {}
     if (!w) return false;
     try { w.focus(); } catch (e) {}
+    becomeHub(w);
     return true;
   };
 
@@ -88,35 +124,33 @@
   aWeb.onclick = function (e) {
     e.preventDefault();
     setMode('web'); /* this computer prefers WhatsApp Web from now on */
-    if (openWeb()) {
-      h.textContent = '✅ Opened in WhatsApp Web';
-      sub.textContent = 'Next time it will open there automatically. You can close this tab.';
-      btns.style.display = 'none'; sw.style.display = 'none';
-      scrub(); closeSoon(1500);
-    } else {
-      location.href = web; /* popup blocked: use this tab */
-    }
+    askHub(function (ok) {
+      if (ok) { h.textContent = '✅ Opened in your WhatsApp tab'; sub.textContent = 'Go to the WhatsApp tab. This tab will close.'; btns.style.display = 'none'; sw.style.display = 'none'; scrub(); closeSoon(1200); return; }
+      if (!openWeb()) location.href = web; /* popup blocked: use this tab */
+    });
   };
   aApp.onclick = function (e) { e.preventDefault(); setMode('app'); sendApp(); };
 
   if (getMode() === 'web') {
-    document.title = 'Opening WhatsApp Web…';
-    if (openWeb()) {
-      h.textContent = '✅ Opened in WhatsApp Web';
-      sub.textContent = 'The message is ready in your WhatsApp Web tab. You can close this tab.';
-      scrub(); closeSoon(1500);
-      showSwitch('app');
-    } else {
-      /* popup blocker stopped the automatic open — one click needed */
-      h.textContent = 'Click once to open the chat';
-      sub.textContent = 'It opens in your WhatsApp Web tab with the message ready.';
+    document.title = 'Opening WhatsApp…';
+    h.textContent = 'Opening WhatsApp Web…'; sub.textContent = '';
+    askHub(function (ok) {
+      if (ok) {
+        h.textContent = '✅ Opened in your WhatsApp tab';
+        sub.textContent = 'Go to the WhatsApp tab. This tab will close.';
+        scrub(); closeSoon(1200);
+        return;
+      }
+      /* no hub yet (first customer, or the link tab was closed) — one click opens WhatsApp Web and this tab becomes the hub */
+      h.textContent = 'Click once to open WhatsApp Web';
+      sub.textContent = 'This tab will stay open and send the next customers to the same WhatsApp tab.';
       fbtext.style.display = 'none';
-      aWeb.className = 'btn big'; aWeb.textContent = 'Open in WhatsApp Web';
+      aWeb.className = 'btn big'; aWeb.textContent = 'Open WhatsApp Web';
       aApp.className = 'btn web small';
       btns.style.display = 'block';
       try { aWeb.focus(); } catch (e) {}
       showSwitch('app');
-    }
+    });
     return;
   }
 
