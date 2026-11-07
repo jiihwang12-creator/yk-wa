@@ -76,6 +76,18 @@
      its WhatsApp tab to that chat, and the new page closes itself. */
   var bc = null; try { bc = new BroadcastChannel('yk_wa'); } catch (e) {}
   var waWin = null, isHub = false;
+  /* second signal path: localStorage "storage" events (fire in every other same-site tab) */
+  var lsSend = function (m) { try { localStorage.setItem('yk_wa_msg', JSON.stringify({ m: m, n: Math.random() })); } catch (e) {} };
+  var lsHandlers = [];
+  window.addEventListener('storage', function (ev) {
+    if (ev.key !== 'yk_wa_msg' || !ev.newValue) return;
+    var m = null; try { m = JSON.parse(ev.newValue).m; } catch (e) {}
+    if (m) lsHandlers.forEach(function (f) { f(m); });
+  });
+  var send = function (m) { if (bc) bc.postMessage(m); lsSend(m); };
+  var onMsg = function (f) { if (bc) bc.addEventListener('message', function (ev) { f(ev.data || {}); }); lsHandlers.push(f); };
+  var hubBeat = function () { try { localStorage.setItem('yk_wa_hub', String(Date.now())); } catch (e) {} };
+  var hubAlive = function () { try { return Date.now() - (+localStorage.getItem('yk_wa_hub') || 0) < 6000; } catch (e) { return false; } };
 
   var becomeHub = function (w) {
     waWin = w; isHub = true;
@@ -86,23 +98,24 @@
     scrub();
     /* warn before closing the hub — closing it is the one thing that breaks the one-tab rule */
     window.onbeforeunload = function (e) { if (waWin && !waWin.closed) { e.preventDefault(); e.returnValue = ''; return ''; } };
+    hubBeat(); setInterval(function () { if (isHub && waWin && !waWin.closed) hubBeat(); }, 2000);
   };
-  if (bc) bc.onmessage = function (ev) {
-    var m = ev.data || {};
-    if (!isHub || m.type !== 'open') return;
+  var handled = {};
+  onMsg(function (m) {
+    if (!isHub || m.type !== 'open' || handled[m.id]) return;
+    handled[m.id] = 1;
     if (!waWin || waWin.closed) { isHub = false; return; } /* WhatsApp tab was closed — no answer, the new page takes over */
     try { waWin.location.href = m.web; } catch (e) { return; }
     try { waWin.focus(); } catch (e) {}
-    bc.postMessage({ type: 'ack', id: m.id });
-  };
+    send({ type: 'ack', id: m.id });
+  });
   /* ask an existing hub to open this chat; cb(true) if it did */
   var askHub = function (cb) {
-    if (!bc) return cb(false);
     var id = Math.random().toString(36).slice(2), done = false;
-    var onAck = function (ev) { var m = ev.data || {}; if (m.type === 'ack' && m.id === id && !done) { done = true; bc.removeEventListener('message', onAck); cb(true); } };
-    bc.addEventListener('message', onAck);
-    bc.postMessage({ type: 'open', web: web, id: id });
-    setTimeout(function () { if (!done) { done = true; bc.removeEventListener('message', onAck); cb(false); } }, 800);
+    onMsg(function (m) { if (m.type === 'ack' && m.id === id && !done) { done = true; cb(true); } });
+    send({ type: 'open', web: web, id: id });
+    /* wait longer when a hub is known to be alive (its heartbeat is fresh) */
+    setTimeout(function () { if (!done) { done = true; cb(false); } }, hubAlive() ? 4000 : 1500);
   };
 
   /* open the chat in the ONE WhatsApp Web tab; returns true if the browser let us */
