@@ -37,6 +37,14 @@
   document.getElementById('app').href = app;
   document.getElementById('web').href = web;
   var fb = document.getElementById('fallback');
+  /* 2026-11-07: Star Vista PC — the WhatsApp desktop app opens only the chat list, not the chat.
+     Star Vista messages open in WhatsApp Web instead. Wheelock Place keeps using the app. */
+  if (p && /Star Vista/.test(t)) {
+    document.querySelector('h1').textContent = 'Opening WhatsApp Web…';
+    document.querySelector('.card p').textContent = 'The chat will open with the message ready.';
+    location.replace(web);
+    return;
+  }
   if (p) {
     location.href = app;
     setTimeout(function () { try { history.replaceState(null, '', location.pathname); window.close(); } catch (e) {} }, 2500);
