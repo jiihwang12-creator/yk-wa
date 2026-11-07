@@ -7,71 +7,125 @@
 <title>Opening WhatsApp…</title>
 <style>
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #fdf2f8; color: #0f172a; margin: 0; display: grid; place-items: center; min-height: 100vh; }
-  .card { background: #fff; border-radius: 16px; padding: 28px 32px; box-shadow: 0 6px 24px rgba(219,39,119,.15); text-align: center; max-width: 420px; }
+  .card { background: #fff; border-radius: 16px; padding: 28px 32px; box-shadow: 0 6px 24px rgba(219,39,119,.15); text-align: center; max-width: 440px; }
   h1 { font-size: 18px; margin: 0 0 8px; color: #be185d; }
   p { font-size: 14px; color: #64748b; margin: 6px 0 18px; }
   a.btn { display: inline-block; margin: 4px; padding: 10px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; }
   .app { background: #16a34a; color: #fff; }
   .web { background: #f1f5f9; color: #0f172a; }
+  .big { font-size: 16px; padding: 12px 22px; background: #16a34a; color: #fff; }
+  .small { font-size: 12px; padding: 6px 10px; }
+  .tiny { display: block; margin-top: 14px; font-size: 11px; color: #94a3b8; text-decoration: underline; cursor: pointer; }
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>✅ WhatsApp is open — don't click again</h1>
-  <p>Clicking again will paste the message twice. You can close this tab.</p>
-  <div id="fallback" style="display:none">
+  <h1 id="h">✅ WhatsApp is open — don't click again</h1>
+  <p id="sub">Clicking again will paste the message twice. You can close this tab.</p>
+  <div id="btns" style="display:none">
     <p id="fbtext" style="font-size:12px;margin:14px 0 6px">WhatsApp didn't open?</p>
-    <a id="app" class="btn app" href="#" style="font-size:12px;padding:6px 10px">Open WhatsApp app</a>
-    <a id="web" class="btn web" href="#" style="font-size:12px;padding:6px 10px">Use WhatsApp Web</a>
+    <a id="app" class="btn app small" href="#">Open WhatsApp app</a>
+    <a id="web" class="btn web small" href="#">Use WhatsApp Web</a>
   </div>
+  <a id="switch" class="tiny" style="display:none"></a>
 </div>
 <script>
-/* Yakson Today sheet → WhatsApp desktop app.
-   The phone number and message come after "#" (p=<digits>&t=<text>), so they are never sent to any server. */
+/* Yakson Today sheet → WhatsApp.
+   The phone number and message come after "#" (p=<digits>&t=<text>), so they are never sent to any server.
+
+   How it works (2026-11-07):
+   - Each computer remembers what works for it (localStorage "yk_wa_mode"):
+       app (default): open the WhatsApp desktop app. The command is sent twice (now and 2 s later): when the
+            app is closed, the first command only starts it and the chat is lost; the second one opens the
+            chat. If the app was already open, the second just shows the same chat — nothing is pasted twice.
+       web: open the chat in ONE WhatsApp Web tab automatically.
+     Clicking "Use WhatsApp Web" once switches that computer to web mode; the small link switches back.
+   - WhatsApp Web must live in ONE tab only — a new web.whatsapp.com tab per click logs the staff out
+     ("database error, relink your device"). So WhatsApp Web is always opened in a single named tab
+     ("yakson_wa_web") that is reused every time. */
 (function () {
   var q = new URLSearchParams(location.hash.slice(1));
   var p = (q.get('p') || '').replace(/\D/g, '');
   var t = q.get('t') || '';
-  var app = 'whatsapp://send?phone=' + p + '&text=' + encodeURIComponent(t);
-  var web = 'https://web.whatsapp.com/send?phone=' + p + '&text=' + encodeURIComponent(t);
-  var fb = document.getElementById('fallback');
-  var aApp = document.getElementById('app'), aWeb = document.getElementById('web');
+  var enc = encodeURIComponent(t);
+  var app = 'whatsapp://send?phone=' + p + '&text=' + enc;
+  var web = 'https://web.whatsapp.com/send?phone=' + p + '&text=' + enc;
+  var $ = function (id) { return document.getElementById(id); };
+  var h = $('h'), sub = $('sub'), btns = $('btns'), fbtext = $('fbtext'), aApp = $('app'), aWeb = $('web'), sw = $('switch');
+  var getMode = function () { try { return localStorage.getItem('yk_wa_mode') || 'app'; } catch (e) { return 'app'; } };
+  var setMode = function (m) { try { localStorage.setItem('yk_wa_mode', m); } catch (e) {} };
+  var closeSoon = function (ms) { setTimeout(function () { try { window.close(); } catch (e) {} }, ms); };
+  var scrub = function () { try { history.replaceState(null, '', location.pathname); } catch (e) {} };
+
   aApp.href = app;
   aWeb.href = web;
 
-  /* 2026-11-07: WhatsApp Web must stay in ONE tab. Every sheet link opens a new tab, so sending each
-     click to web.whatsapp.com made one WhatsApp Web tab per customer — WhatsApp Web then logs out
-     ("database error, relink your device"). The Web button therefore opens the chat in a single named
-     tab ("yakson_wa_web") that is reused every time. */
+  var sendApp = function () {
+    var f = document.createElement('iframe');
+    f.style.display = 'none';
+    f.src = app;
+    document.body.appendChild(f);
+    setTimeout(function () { try { f.remove(); } catch (e) {} }, 1500);
+  };
+
+  /* open the chat in the ONE WhatsApp Web tab; returns true if the browser let us */
+  var openWeb = function () {
+    var w = null;
+    try { w = window.open(web, 'yakson_wa_web'); } catch (e) {}
+    if (!w) return false;
+    try { w.focus(); } catch (e) {}
+    return true;
+  };
+
+  var showSwitch = function (toMode) {
+    sw.style.display = 'block';
+    sw.textContent = toMode === 'web' ? 'Always use WhatsApp Web on this computer' : 'Use the WhatsApp app instead on this computer';
+    sw.onclick = function () { setMode(toMode); location.reload(); };
+  };
+
+  if (!p) { btns.style.display = 'block'; return; }
+
   aWeb.onclick = function (e) {
     e.preventDefault();
-    var w = null;
-    try { w = window.open(web, 'yakson_wa_web'); } catch (err) {}
-    if (w) {
-      try { w.focus(); } catch (err) {}
-      aWeb.textContent = 'Opened in WhatsApp Web ✓';
-      setTimeout(function () { try { window.close(); } catch (err) {} }, 1500);
+    setMode('web'); /* this computer prefers WhatsApp Web from now on */
+    if (openWeb()) {
+      h.textContent = '✅ Opened in WhatsApp Web';
+      sub.textContent = 'Next time it will open there automatically. You can close this tab.';
+      btns.style.display = 'none'; sw.style.display = 'none';
+      scrub(); closeSoon(1500);
     } else {
       location.href = web; /* popup blocked: use this tab */
     }
   };
+  aApp.onclick = function (e) { e.preventDefault(); setMode('app'); sendApp(); };
 
-  if (p) {
-    location.href = app; /* WhatsApp app first, as always */
-    setTimeout(function () { try { history.replaceState(null, '', location.pathname); } catch (e) {} }, 2500);
-    if (/Star Vista/.test(t)) {
-      /* Star Vista PC: the app sometimes opens only the chat list — show both buttons at once. */
-      document.getElementById('fbtext').textContent = 'Chat not open in the app? Use WhatsApp Web:';
-      fb.style.display = 'block';
-      aWeb.style.fontSize = '15px'; aWeb.style.padding = '10px 18px'; aWeb.style.background = '#16a34a'; aWeb.style.color = '#fff';
-      aApp.style.background = '#f1f5f9'; aApp.style.color = '#0f172a';
+  if (getMode() === 'web') {
+    document.title = 'Opening WhatsApp Web…';
+    if (openWeb()) {
+      h.textContent = '✅ Opened in WhatsApp Web';
+      sub.textContent = 'The message is ready in your WhatsApp Web tab. You can close this tab.';
+      scrub(); closeSoon(1500);
+      showSwitch('app');
     } else {
-      setTimeout(function () { try { window.close(); } catch (e) {} }, 2500);
-      setTimeout(function () { fb.style.display = 'block'; }, 5000); /* backup buttons only after 5s, small — so staff don't click twice */
+      /* popup blocker stopped the automatic open — one click needed */
+      h.textContent = 'Click once to open the chat';
+      sub.textContent = 'It opens in your WhatsApp Web tab with the message ready.';
+      fbtext.style.display = 'none';
+      aWeb.className = 'btn big'; aWeb.textContent = 'Open in WhatsApp Web';
+      aApp.className = 'btn web small';
+      btns.style.display = 'block';
+      try { aWeb.focus(); } catch (e) {}
+      showSwitch('app');
     }
-  } else {
-    fb.style.display = 'block';
+    return;
   }
+
+  /* app mode (default) */
+  location.href = app;                       /* 1st: starts the app (or opens the chat if already running) */
+  setTimeout(sendApp, 2000);                 /* 2nd: opens the chat once the app is up */
+  setTimeout(scrub, 2500);
+  closeSoon(4000);
+  setTimeout(function () { btns.style.display = 'block'; showSwitch('web'); }, 5000); /* backup buttons only after 5s, small — so staff don't click twice */
 })();
 </script>
 </body>
