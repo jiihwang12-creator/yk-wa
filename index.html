@@ -84,6 +84,8 @@
     sub.textContent = 'Customer links now open in your WhatsApp Web tab. Do not close this tab. If you close WhatsApp Web, close this tab too.';
     btns.style.display = 'none'; sw.style.display = 'none';
     scrub();
+    /* warn before closing the hub — closing it is the one thing that breaks the one-tab rule */
+    window.onbeforeunload = function (e) { if (waWin && !waWin.closed) { e.preventDefault(); e.returnValue = ''; return ''; } };
   };
   if (bc) bc.onmessage = function (ev) {
     var m = ev.data || {};
