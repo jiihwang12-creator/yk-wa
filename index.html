@@ -166,7 +166,9 @@
         scrub(); closeSoon(300);
         return;
       }
-      /* no hub yet (first customer, or the link tab was closed) — one click opens WhatsApp Web and this tab becomes the hub */
+      /* no hub yet (first customer, or the link tab was closed): open WhatsApp Web automatically and become the hub.
+         Works without a click when pop-ups are allowed for this site; otherwise the button stays. */
+      if (openWeb()) return;
       h.textContent = 'Click once to open WhatsApp Web';
       sub.textContent = 'This tab will stay open and send the next customers to the same WhatsApp tab.';
     });
