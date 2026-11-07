@@ -156,7 +156,6 @@
     aApp.className = 'btn web small';
     btns.style.display = 'block';
     try { aWeb.focus(); } catch (e) {}
-    showSwitch('app');
     askHub(function (ok) {
       if (isHub) return; /* staff already clicked the button */
       if (ok) {
