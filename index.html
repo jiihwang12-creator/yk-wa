@@ -20,7 +20,7 @@
   <h1>✅ WhatsApp is open — don't click again</h1>
   <p>Clicking again will paste the message twice. You can close this tab.</p>
   <div id="fallback" style="display:none">
-    <p style="font-size:12px;margin:14px 0 6px">WhatsApp didn't open?</p>
+    <p id="fbtext" style="font-size:12px;margin:14px 0 6px">WhatsApp didn't open?</p>
     <a id="app" class="btn app" href="#" style="font-size:12px;padding:6px 10px">Open WhatsApp app</a>
     <a id="web" class="btn web" href="#" style="font-size:12px;padding:6px 10px">Use WhatsApp Web</a>
   </div>
@@ -34,21 +34,41 @@
   var t = q.get('t') || '';
   var app = 'whatsapp://send?phone=' + p + '&text=' + encodeURIComponent(t);
   var web = 'https://web.whatsapp.com/send?phone=' + p + '&text=' + encodeURIComponent(t);
-  document.getElementById('app').href = app;
-  document.getElementById('web').href = web;
   var fb = document.getElementById('fallback');
-  /* 2026-11-07: Star Vista PC — the WhatsApp desktop app opens only the chat list, not the chat.
-     Star Vista messages open in WhatsApp Web instead. Wheelock Place keeps using the app. */
-  if (p && /Star Vista/.test(t)) {
-    document.querySelector('h1').textContent = 'Opening WhatsApp Web…';
-    document.querySelector('.card p').textContent = 'The chat will open with the message ready.';
-    location.replace(web);
-    return;
-  }
+  var aApp = document.getElementById('app'), aWeb = document.getElementById('web');
+  aApp.href = app;
+  aWeb.href = web;
+
+  /* 2026-11-07: WhatsApp Web must stay in ONE tab. Every sheet link opens a new tab, so sending each
+     click to web.whatsapp.com made one WhatsApp Web tab per customer — WhatsApp Web then logs out
+     ("database error, relink your device"). The Web button therefore opens the chat in a single named
+     tab ("yakson_wa_web") that is reused every time. */
+  aWeb.onclick = function (e) {
+    e.preventDefault();
+    var w = null;
+    try { w = window.open(web, 'yakson_wa_web'); } catch (err) {}
+    if (w) {
+      try { w.focus(); } catch (err) {}
+      aWeb.textContent = 'Opened in WhatsApp Web ✓';
+      setTimeout(function () { try { window.close(); } catch (err) {} }, 1500);
+    } else {
+      location.href = web; /* popup blocked: use this tab */
+    }
+  };
+
   if (p) {
-    location.href = app;
-    setTimeout(function () { try { history.replaceState(null, '', location.pathname); window.close(); } catch (e) {} }, 2500);
-    setTimeout(function () { fb.style.display = 'block'; }, 5000); /* backup buttons only after 5s, small — so staff don't click twice */
+    location.href = app; /* WhatsApp app first, as always */
+    setTimeout(function () { try { history.replaceState(null, '', location.pathname); } catch (e) {} }, 2500);
+    if (/Star Vista/.test(t)) {
+      /* Star Vista PC: the app sometimes opens only the chat list — show both buttons at once. */
+      document.getElementById('fbtext').textContent = 'Chat not open in the app? Use WhatsApp Web:';
+      fb.style.display = 'block';
+      aWeb.style.fontSize = '15px'; aWeb.style.padding = '10px 18px'; aWeb.style.background = '#16a34a'; aWeb.style.color = '#fff';
+      aApp.style.background = '#f1f5f9'; aApp.style.color = '#0f172a';
+    } else {
+      setTimeout(function () { try { window.close(); } catch (e) {} }, 2500);
+      setTimeout(function () { fb.style.display = 'block'; }, 5000); /* backup buttons only after 5s, small — so staff don't click twice */
+    }
   } else {
     fb.style.display = 'block';
   }
