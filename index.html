@@ -115,7 +115,7 @@
     onMsg(function (m) { if (m.type === 'ack' && m.id === id && !done) { done = true; cb(true); } });
     send({ type: 'open', web: web, id: id });
     /* wait longer when a hub is known to be alive (its heartbeat is fresh) */
-    setTimeout(function () { if (!done) { done = true; cb(false); } }, hubAlive() ? 4000 : 1500);
+    setTimeout(function () { if (!done) { done = true; cb(false); } }, hubAlive() ? 2500 : 600);
   };
 
   /* open the chat in the ONE WhatsApp Web tab; returns true if the browser let us */
@@ -140,7 +140,7 @@
     e.preventDefault();
     setMode('web'); /* this computer prefers WhatsApp Web from now on */
     askHub(function (ok) {
-      if (ok) { h.textContent = '✅ Opened in your WhatsApp tab'; sub.textContent = 'Go to the WhatsApp tab. This tab will close.'; btns.style.display = 'none'; sw.style.display = 'none'; scrub(); closeSoon(1200); return; }
+      if (ok) { h.textContent = '✅ Opened in your WhatsApp tab'; sub.textContent = ''; btns.style.display = 'none'; sw.style.display = 'none'; scrub(); closeSoon(300); return; }
       if (!openWeb()) location.href = web; /* popup blocked: use this tab */
     });
   };
@@ -148,23 +148,27 @@
 
   if (getMode() === 'web') {
     document.title = 'Opening WhatsApp…';
-    h.textContent = 'Opening WhatsApp Web…'; sub.textContent = '';
+    /* show the button at once — no waiting — and hide it the moment the hub answers */
+    h.textContent = 'Opening in WhatsApp Web…';
+    sub.textContent = 'If nothing happens, click the button.';
+    fbtext.style.display = 'none';
+    aWeb.className = 'btn big'; aWeb.textContent = 'Open WhatsApp Web';
+    aApp.className = 'btn web small';
+    btns.style.display = 'block';
+    try { aWeb.focus(); } catch (e) {}
+    showSwitch('app');
     askHub(function (ok) {
+      if (isHub) return; /* staff already clicked the button */
       if (ok) {
         h.textContent = '✅ Opened in your WhatsApp tab';
-        sub.textContent = 'Go to the WhatsApp tab. This tab will close.';
-        scrub(); closeSoon(1200);
+        sub.textContent = '';
+        btns.style.display = 'none'; sw.style.display = 'none';
+        scrub(); closeSoon(300);
         return;
       }
       /* no hub yet (first customer, or the link tab was closed) — one click opens WhatsApp Web and this tab becomes the hub */
       h.textContent = 'Click once to open WhatsApp Web';
       sub.textContent = 'This tab will stay open and send the next customers to the same WhatsApp tab.';
-      fbtext.style.display = 'none';
-      aWeb.className = 'btn big'; aWeb.textContent = 'Open WhatsApp Web';
-      aApp.className = 'btn web small';
-      btns.style.display = 'block';
-      try { aWeb.focus(); } catch (e) {}
-      showSwitch('app');
     });
     return;
   }
