@@ -121,11 +121,19 @@
   }
 
   /* app mode (default) */
+  /* Close this tab only if the WhatsApp app really took focus (page lost focus / got hidden).
+     If the app did not open, the tab stays and the backup buttons appear — never close before they show. */
+  var appTookFocus = false;
+  window.addEventListener('blur', function () { appTookFocus = true; });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) appTookFocus = true; });
   location.href = app;                       /* 1st: starts the app (or opens the chat if already running) */
   setTimeout(sendApp, 2000);                 /* 2nd: opens the chat once the app is up */
   setTimeout(scrub, 2500);
-  closeSoon(4000);
-  setTimeout(function () { btns.style.display = 'block'; showSwitch('web'); }, 5000); /* backup buttons only after 5s, small — so staff don't click twice */
+  setTimeout(function () { if (appTookFocus) { try { window.close(); } catch (e) {} } }, 4000);
+  setTimeout(function () {                   /* backup buttons after 3s, small — so staff don't click twice */
+    if (!appTookFocus) { h.textContent = 'WhatsApp app didn\'t open?'; sub.textContent = 'Use WhatsApp Web below — this computer will remember it.'; aWeb.className = 'btn big'; aApp.className = 'btn web small'; fbtext.style.display = 'none'; }
+    btns.style.display = 'block'; showSwitch('web');
+  }, 3000);
 })();
 </script>
 </body>
