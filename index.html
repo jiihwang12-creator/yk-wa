@@ -20,11 +20,11 @@
 </head>
 <body>
 <div class="card">
-  <h1 id="h">✅ WhatsApp is open — don't click again</h1>
-  <p id="sub">Clicking again will paste the message twice. You can close this tab.</p>
+  <h1 id="h">✅ WhatsApp is open — you can close this tab</h1>
+  <p id="sub"></p>
   <div id="btns" style="display:none">
-    <p id="fbtext" style="font-size:12px;margin:14px 0 6px">WhatsApp didn't open?</p>
-    <a id="app" class="btn app small" href="#">Open WhatsApp app</a>
+    <p id="fbtext" style="font-size:12px;margin:14px 0 6px">Chat didn't open? Click once more:</p>
+    <a id="app" class="btn app small" href="#">Open chat</a>
     <a id="web" class="btn web small" href="#">Use WhatsApp Web</a>
   </div>
   <a id="switch" class="tiny" style="display:none"></a>
@@ -34,9 +34,9 @@
    The phone number and message come after "#" (p=<digits>&t=<text>), so they are never sent to any server.
 
    Each computer remembers what works for it (localStorage "yk_wa_mode"):
-     app (default): open the WhatsApp desktop app. The command is sent twice (now and 2 s later): when the
-          app is closed, the first command only starts it and the chat is lost; the second one opens the chat.
-          If the app was already open, the second just shows the same chat — nothing is pasted twice.
+     app (default): open the WhatsApp desktop app. The command is sent ONCE (2026-11-12: sending it twice
+          pasted the message twice when the app was already open). If the app was closed, the first command may
+          only start it — then staff click "Open chat" once (button appears after 3 s).
      web: this tab becomes WhatsApp Web with the chat open. Every click is a new tab — WhatsApp Web sends
           Cross-Origin-Opener-Policy: same-origin, so no page can re-use an already open WhatsApp Web tab
           (verified 2026-11-07). Staff close the old tab, or click "Use here" in the new one.
@@ -96,8 +96,7 @@
   var appTookFocus = false;
   window.addEventListener('blur', function () { appTookFocus = true; });
   document.addEventListener('visibilitychange', function () { if (document.hidden) appTookFocus = true; });
-  location.href = app;                       /* 1st: starts the app (or opens the chat if already running) */
-  setTimeout(sendApp, 2000);                 /* 2nd: opens the chat once the app is up */
+  location.href = app;                       /* sent once only — a 2nd automatic send pasted the text twice */
   setTimeout(scrub, 2500);
   setTimeout(function () { if (appTookFocus) { try { window.close(); } catch (e) {} } }, 4000);
   setTimeout(function () {                   /* backup buttons after 3s — never close before they show */
